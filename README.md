@@ -1,16 +1,98 @@
-# flutter_application_1
+# Note-Taking App Flutter
 
-A new Flutter project.
+Aplikasi pencatatan sederhana berbasis Flutter untuk kebutuhan tugas praktikum mobile.
 
-## Getting Started
+Aplikasi ini memungkinkan pengguna membuat, mengedit, dan menghapus catatan dengan penyimpanan lokal berbasis file. Setiap catatan juga dapat memiliki lampiran gambar (maksimal 3 gambar) yang dikompresi agar penyimpanan lebih efisien.
 
-This project is a starting point for a Flutter application.
+## Fitur Utama
 
-A few resources to get you started if this is your first Flutter project:
+- Menampilkan daftar seluruh catatan.
+- Menambah catatan baru.
+- Mengedit catatan yang sudah ada.
+- Menghapus catatan beserta lampiran gambar secara permanen.
+- Menyimpan data catatan ke local storage (bukan database online).
+- Lampiran gambar hingga 3 file per catatan.
+- Kompresi gambar otomatis sebelum disimpan.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Tampilan Aplikasi
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Alur utama aplikasi:
+
+1. Halaman daftar catatan.
+2. Tombol tambah untuk membuat catatan baru.
+3. Halaman editor untuk judul, isi, dan lampiran gambar.
+4. Tombol simpan di AppBar.
+
+> Opsional: tambahkan screenshot di folder `assets/screenshots/` lalu sisipkan ke README agar dokumentasi makin menarik.
+
+## Teknologi yang Digunakan
+
+- Flutter (Material 3)
+- Dart
+- Package:
+	- `path_provider` untuk akses direktori dokumen aplikasi
+	- `path` untuk manajemen path file/folder
+	- `image_picker` untuk memilih gambar dari galeri
+	- `flutter_image_compress` untuk kompresi gambar
+
+## Struktur Folder Penting
+
+```text
+lib/
+	main.dart
+	helpers/
+		file_helper.dart       # Operasi file: simpan, baca, hapus catatan & gambar
+	models/
+		note.dart              # Model data catatan
+	screens/
+		note_list_screen.dart  # Halaman daftar catatan
+		note_editor_screen.dart# Halaman editor catatan
+```
+
+## Cara Menjalankan Proyek
+
+### 1. Clone repository
+
+```bash
+git clone <url-repository>
+cd flutter_application_1
+```
+
+### 2. Install dependencies
+
+```bash
+flutter pub get
+```
+
+### 3. Jalankan aplikasi
+
+```bash
+flutter run
+```
+
+## Mekanisme Penyimpanan Data
+
+Data catatan disimpan di direktori dokumen aplikasi dengan pola:
+
+```text
+notes/
+	note_<timestamp>/
+		content.txt
+		image_1.jpg
+		image_2.jpg
+		image_3.jpg
+```
+
+Keterangan:
+
+- `content.txt`: baris pertama adalah judul, baris berikutnya adalah isi catatan.
+- File gambar bersifat opsional sesuai jumlah lampiran yang dipilih pengguna.
+
+## Validasi dan Batasan
+
+- Catatan tidak dapat disimpan jika judul dan isi sama-sama kosong.
+- Maksimal 3 gambar per catatan.
+- Jika gambar lama dihapus saat edit, file gambar terkait ikut dihapus dari penyimpanan.
+
+
+
