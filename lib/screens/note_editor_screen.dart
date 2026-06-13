@@ -3,6 +3,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
 import '../models/note.dart';
 import '../helpers/file_helper.dart';
 
@@ -19,6 +20,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
   final FileHelper _fileHelper = FileHelper();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
+  final TextEditingController _tagsController = TextEditingController();
   bool _isSaving = false;
 
   // UBAH 1: Gunakan Map untuk melacak 3 slot gambar (1, 2, dan 3)
@@ -36,6 +38,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
     if (_isEditMode) {
       _titleController.text = widget.note!.title;
       _contentController.text = widget.note!.content;
+      _tagsController.text = widget.note!.tags.join(', ');
       // UBAH 2: Panggil fungsi pemuatan 3 gambar
       _loadExistingImages();
     }
@@ -58,7 +61,24 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
+    _tagsController.dispose();
     super.dispose();
+  }
+
+  List<String> _parseTags(String rawTags) {
+    final seenTags = <String>{};
+    final parsedTags = <String>[];
+
+    for (final tag in rawTags.split(',')) {
+      final normalizedTag = tag.trim();
+      if (normalizedTag.isEmpty || seenTags.contains(normalizedTag)) {
+        continue;
+      }
+      seenTags.add(normalizedTag);
+      parsedTags.add(normalizedTag);
+    }
+
+    return parsedTags;
   }
 
   // Memilih beberapa gambar sekaligus lalu mengisi slot kosong hingga maksimal 3
@@ -94,6 +114,11 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
     });
   }
 
+  bool _isImageManagedByCurrentNote(File file) {
+    final parentFolder = p.basename(p.dirname(file.path));
+    return parentFolder == _resolvedNoteId;
+  }
+
   // UBAH 6: Perbarui logika simpan untuk mengecek 3 slot gambar
   Future<void> _saveNote() async {
     if (_titleController.text.trim().isEmpty &&
@@ -112,6 +137,9 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
         _resolvedNoteId,
         _titleController.text.trim(),
         _contentController.text.trim(),
+        isPinned: widget.note?.isPinned ?? false,
+        isArchived: widget.note?.isArchived ?? false,
+        tags: _parseTags(_tagsController.text),
       );
 
       // Cek satu per satu slot 1, 2, dan 3
@@ -121,7 +149,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
 
         if (currentFile != null) {
           // Jika ada gambar baru di slot ini, simpan
-          if (!currentFile.path.contains(_resolvedNoteId)) {
+          if (!_isImageManagedByCurrentNote(currentFile)) {
             await _fileHelper.saveNoteImage(_resolvedNoteId, i, currentFile.path);
           }
         } else if (hadExisting) {
@@ -277,6 +305,15 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
               maxLines: null,
               minLines: 8,
               style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _tagsController,
+              decoration: const InputDecoration(
+                labelText: 'Tag / kategori',
+                hintText: 'Pisahkan dengan koma, mis. kerja, belajar',
+                border: OutlineInputBorder(),
+              ),
             ),
             const SizedBox(height: 16),
             

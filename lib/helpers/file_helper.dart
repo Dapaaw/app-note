@@ -6,8 +6,34 @@ import '../models/note.dart';
 
 class FileHelper {
   static final FileHelper _instance = FileHelper._internal();
+  static const String _metadataPrefix = '__meta__|';
   FileHelper._internal();
   factory FileHelper() => _instance;
+
+  String _encodeMetadata({
+    required bool isPinned,
+    required bool isArchived,
+    required List<String> tags,
+  }) {
+    final metadataParts = <String>[
+      'pinned=${isPinned ? 1 : 0}',
+      'archived=${isArchived ? 1 : 0}',
+    ];
+    if (tags.isNotEmpty) {
+      final encodedTags = tags.map(Uri.encodeComponent).join(',');
+      metadataParts.add('tags=$encodedTags');
+    }
+    return '$_metadataPrefix${metadataParts.join('|')}';
+  }
+
+  List<String> _decodeTags(String rawTags) {
+    if (rawTags.trim().isEmpty) return const [];
+    return rawTags
+        .split(',')
+        .map((tag) => Uri.decodeComponent(tag).trim())
+        .where((tag) => tag.isNotEmpty)
+        .toList();
+  }
 
   // Mendapatkan direktori notes dan memastikan keberadaannya
   Future<Directory> _getNotesDirectory() async {
@@ -25,15 +51,26 @@ class FileHelper {
   }
 
   // Menyimpan catatan untuk fungsi tambah maupun ubah
-  Future<void> saveNote(String noteId, String title, String content) async {
+  Future<void> saveNote(
+    String noteId,
+    String title,
+    String content, {
+    bool isPinned = false,
+    bool isArchived = false,
+    List<String> tags = const [],
+  }) async {
     final notesDir = await _getNotesDirectory();
     final noteDir = Directory(join(notesDir.path, noteId));
     if (!await noteDir.exists()) {
       await noteDir.create(recursive: true);
     }
     final file = File(join(noteDir.path, 'content.txt'));
-    // Menyimpan judul pada baris pertama dan isi pada baris berikutnya
-    await file.writeAsString('$title\n$content');
+    final metadataLine = _encodeMetadata(
+      isPinned: isPinned,
+      isArchived: isArchived,
+      tags: tags,
+    );
+    await file.writeAsString('$metadataLine\n$title\n$content');
   }
 
   // Membaca satu catatan berdasarkan identitas uniknya
@@ -44,9 +81,33 @@ class FileHelper {
 
     final rawContent = await file.readAsString();
     final lines = rawContent.split('\n');
-    final title = lines.first;
-    final content = lines.length > 1
-        ? lines.sublist(1).join('\n')
+
+    bool isPinned = false;
+    bool isArchived = false;
+    List<String> tags = const [];
+    int titleIndex = 0;
+    if (lines.isNotEmpty && lines.first.startsWith(_metadataPrefix)) {
+      final metadata = lines.first.substring(_metadataPrefix.length);
+      final parts = metadata.split('|');
+      for (final part in parts) {
+        final keyValue = part.split('=');
+        if (keyValue.length != 2) continue;
+        final key = keyValue[0];
+        final value = keyValue[1];
+        if (key == 'pinned') {
+          isPinned = value == '1';
+        } else if (key == 'archived') {
+          isArchived = value == '1';
+        } else if (key == 'tags') {
+          tags = _decodeTags(value);
+        }
+      }
+      titleIndex = 1;
+    }
+
+    final title = lines.length > titleIndex ? lines[titleIndex] : '';
+    final content = lines.length > titleIndex + 1
+        ? lines.sublist(titleIndex + 1).join('\n')
         : '';
 
     int count = 0;
@@ -61,11 +122,14 @@ class FileHelper {
       title: title,
       content: content,
       imageCount: count,
+      isPinned: isPinned,
+      isArchived: isArchived,
+      tags: tags,
     );
   }
 
   // Memindai seluruh catatan yang tersimpan di penyimpanan
-  Future<List<Note>> getAllNotes() async {
+  Future<List<Note>> getAllNotes({bool includeArchived = false}) async {
     final notesDir = await _getNotesDirectory();
     final List<String> noteIds = [];
 
@@ -75,15 +139,61 @@ class FileHelper {
       }
     }
 
-    // Mengurutkan ID dari yang terbaru
-    noteIds.sort((a, b) => b.compareTo(a));
-
     final List<Note> notes = [];
     for (final id in noteIds) {
       final note = await readNote(id);
-      if (note != null) notes.add(note);
+      if (note == null) continue;
+      if (!includeArchived && note.isArchived) continue;
+      notes.add(note);
     }
+
+    notes.sort((a, b) {
+      if (a.isPinned != b.isPinned) {
+        return a.isPinned ? -1 : 1;
+      }
+      return b.id.compareTo(a.id);
+    });
+
     return notes;
+  }
+
+  Future<void> setNotePinned(String noteId, bool isPinned) async {
+    final note = await readNote(noteId);
+    if (note == null) return;
+    await saveNote(
+      noteId,
+      note.title,
+      note.content,
+      isPinned: isPinned,
+      isArchived: note.isArchived,
+      tags: note.tags,
+    );
+  }
+
+  Future<void> setNoteArchived(String noteId, bool isArchived) async {
+    final note = await readNote(noteId);
+    if (note == null) return;
+    await saveNote(
+      noteId,
+      note.title,
+      note.content,
+      isPinned: note.isPinned,
+      isArchived: isArchived,
+      tags: note.tags,
+    );
+  }
+
+  Future<void> setNoteTags(String noteId, List<String> tags) async {
+    final note = await readNote(noteId);
+    if (note == null) return;
+    await saveNote(
+      noteId,
+      note.title,
+      note.content,
+      isPinned: note.isPinned,
+      isArchived: note.isArchived,
+      tags: tags,
+    );
   }
 
   // Melakukan kompresi dan menyimpan gambar ke folder catatan

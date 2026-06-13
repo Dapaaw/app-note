@@ -15,6 +15,7 @@ class _NoteListScreenState extends State<NoteListScreen> {
   final FileHelper _fileHelper = FileHelper();
   List<Note> _notes = [];
   bool _isLoading = true;
+  bool _showArchived = false;
 
   @override
   void initState() {
@@ -26,42 +27,57 @@ class _NoteListScreenState extends State<NoteListScreen> {
   Future<void> _loadNotes() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
-    
-    final notes = await _fileHelper.getAllNotes();
-    
-    if (!mounted) return;
-    setState(() {
-      _notes = notes;
-      _isLoading = false;
-    });
+
+    try {
+      final notes = await _fileHelper.getAllNotes(includeArchived: _showArchived);
+      if (!mounted) return;
+      setState(() {
+        _notes = notes;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _notes = [];
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
-  // Menghapus catatan setelah konfirmasi pengguna
-  Future<void> _deleteNote(String noteId) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Hapus Catatan'),
-        content: const Text(
-          'Catatan beserta gambar pendampingnya akan dihapus secara permanen.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Batal'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
+  Future<void> _togglePin(Note note) async {
+    await _fileHelper.setNotePinned(note.id, !note.isPinned);
+    _loadNotes();
+  }
 
-    if (confirm == true) {
-      await _fileHelper.deleteNote(noteId);
-      _loadNotes();
-    }
+  Future<void> _toggleArchive(Note note) async {
+    await _fileHelper.setNoteArchived(note.id, !note.isArchived);
+    _loadNotes();
+  }
+
+  Future<void> _toggleArchivedView() async {
+    setState(() {
+      _showArchived = !_showArchived;
+    });
+    await _loadNotes();
+  }
+
+  List<Widget> _buildTagChips(List<String> tags) {
+    return tags
+        .take(3)
+        .map(
+          (tag) => Chip(
+            label: Text(tag),
+            visualDensity: VisualDensity.compact,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            side: BorderSide(color: Colors.blue.shade200),
+            backgroundColor: Colors.blue.shade50,
+          ),
+        )
+        .toList();
   }
 
   // Navigasi ke halaman editor dan memperbarui daftar saat kembali
@@ -80,6 +96,13 @@ class _NoteListScreenState extends State<NoteListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Catatan'),
+        actions: [
+          IconButton(
+            tooltip: _showArchived ? 'Kembali ke catatan aktif' : 'Lihat arsip',
+            icon: Icon(_showArchived ? Icons.note_alt : Icons.archive_outlined),
+            onPressed: _toggleArchivedView,
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -102,20 +125,74 @@ class _NoteListScreenState extends State<NoteListScreen> {
                         leading: note.imageCount > 0
                             ? const Icon(Icons.image, color: Colors.blue)
                             : const Icon(Icons.article_outlined, color: Colors.grey),
-                        title: Text(
-                          note.title.isEmpty ? '(Tanpa judul)' : note.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        title: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                note.title.isEmpty ? '(Tanpa judul)' : note.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            if (note.isPinned) ...[
+                              const SizedBox(width: 8),
+                              Chip(
+                                avatar: Icon(
+                                  Icons.push_pin,
+                                  size: 14,
+                                  color: Colors.amber.shade800,
+                                ),
+                                label: const Text('Favorit'),
+                                visualDensity: VisualDensity.compact,
+                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                backgroundColor: Colors.amber.shade100,
+                                side: BorderSide(color: Colors.amber.shade200),
+                              ),
+                            ],
+                          ],
                         ),
-                        subtitle: Text(
-                          note.content.isEmpty ? '(Tidak ada isi)' : note.content,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (note.tags.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: _buildTagChips(note.tags),
+                              ),
+                            ],
+                            const SizedBox(height: 6),
+                            Text(
+                              note.content.isEmpty ? '(Tidak ada isi)' : note.content,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteNote(note.id),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: note.isPinned ? 'Lepas favorit' : 'Favoritkan',
+                              icon: Icon(
+                                note.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                                color: note.isPinned ? Colors.amber : Colors.grey,
+                              ),
+                              onPressed: () => _togglePin(note),
+                            ),
+                            IconButton(
+                              tooltip: _showArchived ? 'Pulihkan' : 'Arsipkan',
+                              icon: Icon(
+                                _showArchived ? Icons.unarchive_outlined : Icons.archive_outlined,
+                                color: Colors.blueGrey,
+                              ),
+                              onPressed: () => _toggleArchive(note),
+                            ),
+                          ],
                         ),
                         onTap: () => _navigateToEditor(note: note),
                       ),
@@ -123,7 +200,7 @@ class _NoteListScreenState extends State<NoteListScreen> {
                   },
                 ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToEditor(),
+        onPressed: _showArchived ? null : () => _navigateToEditor(),
         child: const Icon(Icons.add),
       ),
     );

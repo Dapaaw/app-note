@@ -2,14 +2,16 @@
 
 Aplikasi pencatatan sederhana berbasis Flutter untuk kebutuhan tugas praktikum mobile.
 
-Aplikasi ini memungkinkan pengguna membuat, mengedit, dan menghapus catatan dengan penyimpanan lokal berbasis file. Setiap catatan juga dapat memiliki lampiran gambar (maksimal 3 gambar) yang dikompresi agar penyimpanan lebih efisien.
+Aplikasi ini memungkinkan pengguna membuat, mengedit, mengarsipkan, dan memulihkan catatan dengan penyimpanan lokal berbasis file. Setiap catatan juga dapat memiliki lampiran gambar (maksimal 3 gambar) yang dikompresi agar penyimpanan lebih efisien.
 
 ## Fitur Utama
 
 - Menampilkan daftar seluruh catatan.
 - Menambah catatan baru.
 - Mengedit catatan yang sudah ada.
-- Menghapus catatan beserta lampiran gambar secara permanen.
+- Menandai catatan sebagai favorit/pin.
+- Menambahkan tag atau kategori pada catatan.
+- Mengarsipkan catatan dan memulihkannya kembali.
 - Menyimpan data catatan ke local storage (bukan database online).
 - Lampiran gambar hingga 3 file per catatan.
 - Kompresi gambar otomatis sebelum disimpan.
@@ -20,8 +22,9 @@ Alur utama aplikasi:
 
 1. Halaman daftar catatan.
 2. Tombol tambah untuk membuat catatan baru.
-3. Halaman editor untuk judul, isi, dan lampiran gambar.
+3. Halaman editor untuk judul, isi, tag, dan lampiran gambar.
 4. Tombol simpan di AppBar.
+5. Tombol pin, arsip, dan label visual favorit di card catatan.
 
 > Opsional: tambahkan screenshot di folder `assets/screenshots/` lalu sisipkan ke README agar dokumentasi makin menarik.
 
@@ -34,6 +37,7 @@ Alur utama aplikasi:
 	- `path` untuk manajemen path file/folder
 	- `image_picker` untuk memilih gambar dari galeri
 	- `flutter_image_compress` untuk kompresi gambar
+	- `path_provider_platform_interface` untuk test storage lokal
 
 ## Struktur Folder Penting
 
@@ -85,7 +89,8 @@ notes/
 
 Keterangan:
 
-- `content.txt`: baris pertama adalah judul, baris berikutnya adalah isi catatan.
+- `content.txt`: baris pertama adalah metadata, baris berikutnya adalah judul dan isi catatan.
+- Metadata menyimpan status favorit, arsip, dan tag.
 - File gambar bersifat opsional sesuai jumlah lampiran yang dipilih pengguna.
 
 ## Validasi dan Batasan
@@ -93,6 +98,8 @@ Keterangan:
 - Catatan tidak dapat disimpan jika judul dan isi sama-sama kosong.
 - Maksimal 3 gambar per catatan.
 - Jika gambar lama dihapus saat edit, file gambar terkait ikut dihapus dari penyimpanan.
+- Catatan yang diarsipkan disembunyikan dari daftar utama dan bisa dipulihkan lewat mode arsip.
+- Catatan favorit ditampilkan lebih dulu di daftar.
 
 
 
